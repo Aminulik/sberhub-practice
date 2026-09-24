@@ -22,13 +22,17 @@ def main(argv=None):
     model = None
     try:
         model = DeepSeekModel()
-        answer = harness.run(model, args.question)
-        if model.last_response and model.last_response["message"].get("tool_calls"):
-            raise RuntimeError("Работа завершилась до получения окончательного ответа модели.")
-        if not isinstance(answer, str) or not answer.strip():
-            raise RuntimeError("Программа завершилась без текстового ответа.")
-        print(f"Ответ: {answer}")
-        return 0
+        result = harness.run(model, args.question) # cr1 answer стал словарем
+        if result["status"] == "ok":
+            print(f"Ответ: {result['answer']}")
+            return 0
+        if result["status"] == "max_steps":
+            print("Ошибка: достигнут лимит шагов.", file=sys.stderr)
+            return 1
+        if result["status"] == "model_timeout":
+            print("Ошибка: модель не ответила за отведённое время.", file=sys.stderr)
+            return 1
+        raise RuntimeError(f"Неизвестный статус: {result['status']}")
     except Exception as error:
         print(f"Ошибка: {describe_error(error)}", file=sys.stderr)
         return 1

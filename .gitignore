@@ -5,3 +5,9 @@ __pycache__/
 .env.*
 !.env.example
 dist/
+harness.log
+.idea/
+secret.txt
+test.txt
+.DS_Store
+Thumbs.db

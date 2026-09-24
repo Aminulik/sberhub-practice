@@ -4,7 +4,7 @@ from copy import deepcopy
 import os
 from pathlib import Path
 
-
+from config import CONFIG
 DEFAULT_MODEL = "deepseek-flash"
 ENV_PATH = Path(__file__).resolve().with_name(".env")
 
@@ -14,7 +14,9 @@ class RequestLimitExceeded(RuntimeError):
 
 
 class DeepSeekModel:
-    def __init__(self, model=DEFAULT_MODEL, *, client=None, watchdog=8):
+    def __init__(self, model=DEFAULT_MODEL, *, client=None, watchdog=None):
+        if watchdog is None:
+            watchdog = CONFIG["watchdog"]
         if type(watchdog) is not int or watchdog < 1:
             raise ValueError("watchdog должен быть положительным целым")
         if client is None:
@@ -29,7 +31,7 @@ class DeepSeekModel:
             client = OpenAI(
                 api_key=api_key,
                 base_url="https://api.deepseek.com",
-                timeout=20.0,
+                timeout=CONFIG["model_timeout"],   # cr5
                 max_retries=0,
             )
         self.client = client
@@ -39,10 +41,10 @@ class DeepSeekModel:
         self.last_response = None
 
     def __call__(self, *, messages, tools):
-        # Учебный предохранитель клиента; это не нормальная остановка harness.
-        if self.calls >= self.watchdog:
+        watchdog = CONFIG["watchdog"]
+        if self.calls >= watchdog:
             raise RequestLimitExceeded(
-                f"Достигнут клиентский лимит: {self.watchdog} запросов. Работа не завершена."
+                f"Достигнут клиентский лимит: {watchdog} запросов. Работа не завершена."
             )
         self.calls += 1
         response = self.client.chat.completions.create(
@@ -51,6 +53,7 @@ class DeepSeekModel:
             tools=tools,
             stream=False,
             max_tokens=1024,
+            timeout=CONFIG["model_timeout"],  # cr5: перечитываем на каждый запрос
             extra_body={"thinking": {"type": "disabled"}},
         )
         choice = response.choices[0]
