@@ -5,7 +5,9 @@ __pycache__/
 .env.*
 !.env.example
 dist/
+*.egg-info/
 harness.log
+.chtagent/
 .idea/
 secret.txt
 test.txt

@@ -63,7 +63,7 @@ def describe_error(error):
     else:
         message = str(error) if isinstance(error, RuntimeError) else f"{name}: {error}"
 
-    # Одно место в учебном коде даёт точку для исследования, не подсказывая исправление.
+    # В ответ пользователю добавляем файл и строку своей ошибки, без ключа.
     root = Path(__file__).resolve().parent
     frames = [frame for frame in traceback.extract_tb(error.__traceback__)
               if Path(frame.filename).resolve().parent == root

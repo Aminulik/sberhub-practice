@@ -4,9 +4,9 @@ from copy import deepcopy
 import os
 from pathlib import Path
 
-from config import CONFIG
+from .config import CONFIG, Config
 DEFAULT_MODEL = "deepseek-flash"
-ENV_PATH = Path(__file__).resolve().with_name(".env")
+ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 
 
 class RequestLimitExceeded(RuntimeError):
@@ -14,9 +14,10 @@ class RequestLimitExceeded(RuntimeError):
 
 
 class DeepSeekModel:
-    def __init__(self, model=DEFAULT_MODEL, *, client=None, watchdog=None):
+    def __init__(self, model=DEFAULT_MODEL, *, client=None, watchdog=None, config=None):
+        self.config = config if config is not None else Config(CONFIG)
         if watchdog is None:
-            watchdog = CONFIG["watchdog"]
+            watchdog = self.config.watchdog
         if type(watchdog) is not int or watchdog < 1:
             raise ValueError("watchdog должен быть положительным целым")
         if client is None:
@@ -25,13 +26,13 @@ class DeepSeekModel:
             load_dotenv(ENV_PATH, override=False, encoding="utf-8-sig")
             api_key = os.environ.get("DEEPSEEK_API_KEY")
             if not api_key:
-                raise RuntimeError("Заполните DEEPSEEK_API_KEY в .env рядом с clients.py (образец: .env.example)")
+                raise RuntimeError("Заполните DEEPSEEK_API_KEY в .env в корне проекта (образец: .env.example)")
             from openai import OpenAI
 
             client = OpenAI(
                 api_key=api_key,
                 base_url="https://api.deepseek.com",
-                timeout=CONFIG["model_timeout"],   # cr5
+                timeout=self.config.model_timeout,
                 max_retries=0,
             )
         self.client = client
@@ -41,7 +42,7 @@ class DeepSeekModel:
         self.last_response = None
 
     def __call__(self, *, messages, tools):
-        watchdog = CONFIG["watchdog"]
+        watchdog = self.config.watchdog
         if self.calls >= watchdog:
             raise RequestLimitExceeded(
                 f"Достигнут клиентский лимит: {watchdog} запросов. Работа не завершена."
@@ -53,7 +54,7 @@ class DeepSeekModel:
             tools=tools,
             stream=False,
             max_tokens=1024,
-            timeout=CONFIG["model_timeout"],  # cr5: перечитываем на каждый запрос
+            timeout=self.config.model_timeout,
             extra_body={"thinking": {"type": "disabled"}},
         )
         choice = response.choices[0]
